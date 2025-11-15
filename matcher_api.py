@@ -1,6 +1,10 @@
 """
-USC Blind Date Matcher - Claude API Version
-Uses Claude AI to intelligently match students based on comprehensive profile analysis.
+USC Blind Date Matcher - Claude API Version with LinkedIn Integration
+Uses Claude AI to intelligently match students based on comprehensive profile analysis,
+including data extracted from LinkedIn profiles.
+
+IMPORTANT: This uses unofficial LinkedIn scraping. Use responsibly and at your own risk.
+Consider LinkedIn's Terms of Service before using in production.
 """
 
 import pandas as pd
@@ -9,7 +13,9 @@ import os
 import sys
 import json
 import networkx as nx
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
+from linkedin_api import Linkedin
+import time
 
 
 def load_responses(csv_file):
@@ -21,6 +27,7 @@ def load_responses(csv_file):
         'Timestamp': 'timestamp',
         'Name (first and last)': 'name',
         'Email': 'email',
+        'LinkedIn URL': 'linkedin_url',
         'Gender': 'gender',
         'Sexual Orientation': 'orientation',
         'I\'m interested in': 'interested_in',
@@ -43,6 +50,86 @@ def load_responses(csv_file):
 
     df = df.rename(columns=column_mapping)
     return df
+
+
+def extract_linkedin_username(linkedin_url):
+    """Extract LinkedIn username from URL."""
+    if not linkedin_url or pd.isna(linkedin_url):
+        return None
+
+    # Handle different LinkedIn URL formats
+    # https://www.linkedin.com/in/username/
+    # linkedin.com/in/username
+    url = str(linkedin_url).strip()
+
+    if '/in/' in url:
+        username = url.split('/in/')[1].strip('/')
+        # Remove any query parameters
+        username = username.split('?')[0]
+        return username
+
+    return None
+
+
+def get_linkedin_data(linkedin_client: Optional[Linkedin], linkedin_url: str) -> Optional[Dict]:
+    """
+    Extract data from LinkedIn profile.
+    Returns dict with experience, education, skills, etc.
+    """
+    if not linkedin_client or not linkedin_url:
+        return None
+
+    try:
+        username = extract_linkedin_username(linkedin_url)
+        if not username:
+            return None
+
+        print(f"    Fetching LinkedIn data for {username}...", end=" ")
+
+        # Get profile data
+        profile = linkedin_client.get_profile(username)
+
+        # Extract relevant information
+        linkedin_data = {
+            'headline': profile.get('headline', ''),
+            'summary': profile.get('summary', ''),
+            'experience': [],
+            'education': [],
+            'skills': []
+        }
+
+        # Extract experience
+        experiences = profile.get('experience', [])
+        for exp in experiences[:3]:  # Top 3 experiences
+            linkedin_data['experience'].append({
+                'title': exp.get('title', ''),
+                'company': exp.get('companyName', ''),
+                'description': exp.get('description', '')
+            })
+
+        # Extract education
+        educations = profile.get('education', [])
+        for edu in educations:
+            linkedin_data['education'].append({
+                'school': edu.get('schoolName', ''),
+                'degree': edu.get('degreeName', ''),
+                'field': edu.get('fieldOfStudy', '')
+            })
+
+        # Extract skills
+        skills = profile.get('skills', [])
+        linkedin_data['skills'] = [skill.get('name', '') for skill in skills[:10]]  # Top 10 skills
+
+        print("✓")
+
+        # Add small delay to avoid rate limiting
+        time.sleep(1)
+
+        return linkedin_data
+
+    except Exception as e:
+        print(f"✗ (Error: {str(e)})")
+        return None
 
 
 def is_compatible_orientation(person1, person2):
@@ -107,6 +194,40 @@ Shared interests importance (1-5): {person.get('shared_interests_importance', 'N
 Their type: {person.get('type_description', 'N/A')}
 Deal-breakers: {person.get('dealbreakers', 'N/A')}
 """.strip()
+
+    # Add LinkedIn data if available
+    linkedin_data = person.get('linkedin_data')
+    if linkedin_data:
+        profile += "\n\nLINKEDIN PROFILE DATA:"
+
+        if linkedin_data.get('headline'):
+            profile += f"\nHeadline: {linkedin_data['headline']}"
+
+        if linkedin_data.get('summary'):
+            profile += f"\nSummary: {linkedin_data['summary'][:200]}..."  # Truncate long summaries
+
+        if linkedin_data.get('experience'):
+            profile += "\nExperience:"
+            for exp in linkedin_data['experience']:
+                if exp.get('title') and exp.get('company'):
+                    profile += f"\n  - {exp['title']} at {exp['company']}"
+
+        if linkedin_data.get('education'):
+            profile += "\nEducation:"
+            for edu in linkedin_data['education']:
+                parts = []
+                if edu.get('degree'):
+                    parts.append(edu['degree'])
+                if edu.get('field'):
+                    parts.append(edu['field'])
+                if edu.get('school'):
+                    parts.append(f"at {edu['school']}")
+                if parts:
+                    profile += f"\n  - {' '.join(parts)}"
+
+        if linkedin_data.get('skills'):
+            profile += f"\nTop Skills: {', '.join(linkedin_data['skills'][:10])}"
+
     return profile
 
 
@@ -181,13 +302,37 @@ Be honest - some matches will be great (80-100), some okay (50-79), some poor (0
         }
 
 
-def find_matches_with_claude(df, api_key):
+def find_matches_with_claude(df, api_key, linkedin_email=None, linkedin_password=None):
     """
     Find optimal matches using Claude API for compatibility evaluation.
+    Optionally includes LinkedIn data if credentials are provided.
     """
     client = anthropic.Anthropic(api_key=api_key)
 
+    # Initialize LinkedIn client if credentials provided
+    linkedin_client = None
+    if linkedin_email and linkedin_password:
+        try:
+            print("Authenticating with LinkedIn...")
+            linkedin_client = Linkedin(linkedin_email, linkedin_password)
+            print("✓ LinkedIn authentication successful\n")
+        except Exception as e:
+            print(f"✗ LinkedIn authentication failed: {e}")
+            print("Continuing without LinkedIn data...\n")
+
     n = len(df)
+
+    # Fetch LinkedIn data for all people first
+    if linkedin_client:
+        print(f"Fetching LinkedIn data for {n} people...")
+        for i in range(n):
+            person = df.iloc[i]
+            linkedin_url = person.get('linkedin_url')
+            if linkedin_url and not pd.isna(linkedin_url):
+                linkedin_data = get_linkedin_data(linkedin_client, linkedin_url)
+                df.at[i, 'linkedin_data'] = linkedin_data
+        print("✓ LinkedIn data fetching complete\n")
+
     compatibility = {}
 
     print(f"Evaluating compatibility for {n} people using Claude API...")
@@ -307,8 +452,17 @@ def main():
         print("  export ANTHROPIC_API_KEY='your-api-key-here'")
         sys.exit(1)
 
-    print("USC Blind Date Matcher - Claude API Version")
+    # Get LinkedIn credentials (optional)
+    linkedin_email = os.environ.get('LINKEDIN_EMAIL')
+    linkedin_password = os.environ.get('LINKEDIN_PASSWORD')
+
+    print("USC Blind Date Matcher - Claude API Version with LinkedIn")
     print("=" * 50)
+
+    if linkedin_email and linkedin_password:
+        print("LinkedIn integration: ENABLED")
+    else:
+        print("LinkedIn integration: DISABLED (set LINKEDIN_EMAIL and LINKEDIN_PASSWORD to enable)")
 
     # Load responses
     print(f"\nLoading responses from {csv_file}...")
@@ -317,7 +471,7 @@ def main():
 
     # Find matches using Claude API
     print("\nFinding optimal matches using Claude AI...")
-    matches = find_matches_with_claude(df, api_key)
+    matches = find_matches_with_claude(df, api_key, linkedin_email, linkedin_password)
 
     print(f"\nFound {len(matches)} matches!")
     print(f"{len(df) - (len(matches) * 2)} people unmatched")

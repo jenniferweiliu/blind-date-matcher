@@ -16,14 +16,44 @@ This version uses **Claude AI** to intelligently evaluate compatibility between 
 ## How It Works
 
 1. **Loads** form responses
-2. **Filters** by orientation/gender compatibility
-3. **Sends each pair** to Claude API with full profile details
-4. **Claude analyzes** personalities, values, lifestyles, and descriptions
-5. **Returns** compatibility score (0-100) + reasoning
-6. **Creates optimal matches** using maximum weight matching
-7. **Exports** to CSV with AI insights
+2. **(Optional) Fetches LinkedIn data** for each person - experience, education, skills
+3. **Filters** by orientation/gender compatibility
+4. **Sends each pair** to Claude API with full profile details + LinkedIn data
+5. **Claude analyzes** personalities, values, lifestyles, descriptions, AND professional backgrounds
+6. **Returns** compatibility score (0-100) + reasoning
+7. **Creates optimal matches** using maximum weight matching
+8. **Exports** to CSV with AI insights
+
+## 🔗 LinkedIn Integration (NEW!)
+
+The matcher can now extract and use LinkedIn profile data for even more intelligent matching!
+
+### What It Adds:
+- **Professional background** - current role, company, past experience
+- **Education** - degree, field of study, university
+- **Skills** - technical skills, soft skills
+- **Career trajectory** - ambition indicators, industry focus
+
+### Why It Helps:
+- Match people with similar career interests
+- Find compatible ambition levels beyond self-reported data
+- Identify shared professional networks or industries
+- Better understand someone's true interests and expertise
+
+### Example:
+> Person A: Works at Google, studied CS, skills include Python, Machine Learning
+> Person B: Works at Meta, studied CS, skills include JavaScript, AI
+> **Claude**: "Both are in tech with AI interests - great conversation starters!"
 
 ## Setup
+
+### 0. Update Google Form (for LinkedIn)
+
+If you want to use LinkedIn integration, add this question to your Google Form:
+
+**Question:** LinkedIn URL (optional)
+**Type:** Short answer
+**Description:** "Your LinkedIn profile URL (e.g., https://linkedin.com/in/yourname)"
 
 ### 1. Install Dependencies
 
@@ -38,19 +68,39 @@ pip3 install -r requirements.txt
 3. Create a new API key
 4. Copy the key
 
-### 3. Set Environment Variable
+### 3. Set Environment Variables
 
 ```bash
-# On Mac/Linux
+# Required: Claude API
 export ANTHROPIC_API_KEY='your-api-key-here'
 
-# On Windows (PowerShell)
-$env:ANTHROPIC_API_KEY='your-api-key-here'
+# Optional: LinkedIn (for enhanced matching)
+export LINKEDIN_EMAIL='your-linkedin-email@example.com'
+export LINKEDIN_PASSWORD='your-linkedin-password'
 ```
+
+**⚠️ Important LinkedIn Notes:**
+- This uses unofficial LinkedIn scraping via `linkedin-api` library
+- **Against LinkedIn ToS** - use at your own risk
+- For personal/educational use only
+- May trigger LinkedIn security alerts (use a dedicated account)
+- Rate limited - be patient with large batches
+- Works without LinkedIn too (just won't include professional data)
 
 ## Usage
 
+### Basic (without LinkedIn):
 ```bash
+python3 matcher_api.py responses.csv
+```
+
+### With LinkedIn Integration:
+```bash
+# Set credentials first
+export LINKEDIN_EMAIL='your-email@example.com'
+export LINKEDIN_PASSWORD='your-password'
+
+# Run matcher
 python3 matcher_api.py responses.csv
 ```
 
