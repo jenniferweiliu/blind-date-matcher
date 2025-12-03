@@ -257,13 +257,13 @@ def calculate_compatibility_score(person1, person2):
 
     # Check how many of person1's desired traits person2 actually has
     p1_match_count = 0
-    for trait, value in trait_to_value_map.items():
+    for value, trait in trait_to_value_map.items():
         if value in p1_values and trait in traits2:
             p1_match_count += 1
 
     # Check how many of person2's desired traits person1 actually has
     p2_match_count = 0
-    for trait, value in trait_to_value_map.items():
+    for value, trait in trait_to_value_map.items():
         if value in p2_values and trait in traits1:
             p2_match_count += 1
 
