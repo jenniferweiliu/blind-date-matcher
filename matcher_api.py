@@ -1,6 +1,6 @@
 """
-USC Blind Date Matcher - Claude API Version with LinkedIn Integration
-Uses Claude AI to intelligently match students based on comprehensive profile analysis,
+USC Blind Date Matcher - Free AI Version with LinkedIn Integration
+Uses Groq AI (free) to intelligently match students based on comprehensive profile analysis,
 including data extracted from LinkedIn profiles.
 
 IMPORTANT: This uses unofficial LinkedIn scraping. Use responsibly and at your own risk.
@@ -8,7 +8,7 @@ Consider LinkedIn's Terms of Service before using in production.
 """
 
 import pandas as pd
-import anthropic
+from groq import Groq
 import os
 import sys
 import json
@@ -27,7 +27,8 @@ def load_responses(csv_file):
         'Timestamp': 'timestamp',
         'Name (first and last)': 'name',
         'Email': 'email',
-        'LinkedIn URL': 'linkedin_url',
+        'Phone Number': 'phone',
+        'LinkedIn Url (algorithm will scrape your profile)': 'linkedin_url',
         'Gender': 'gender',
         'Sexual Orientation': 'orientation',
         'I\'m interested in': 'interested_in',
@@ -39,13 +40,15 @@ def load_responses(csv_file):
         'How would your friends describe you? (pick top 3)': 'self_traits',
         'What do you do for fun? (top 3)': 'hobbies',
         'Dream date activity?': 'dream_date',
+        'Favorite tv show/movie': 'favorite_media',
         'Drinking': 'drinking',
         'Weed': 'weed',
         'What matters most in a partner? (Pick your top 3)': 'partner_values',
         'How important is it that they share your interests/hobbies? (Scale 1-5)': 'shared_interests_importance',
         'Describe your type (qualities, physical type, etc.)': 'type_description',
-        'Career/ambition level?': 'ambition',
-        'Deal-breakers?': 'dealbreakers'
+        'Ideal career/ambition level in your blind date': 'ambition',
+        'Deal-breakers?': 'dealbreakers',
+        'Fun fact about yourself': 'fun_fact'
     }
 
     df = df.rename(columns=column_mapping)
@@ -175,6 +178,7 @@ def create_person_profile(person):
     profile = f"""
 Name: {person['name']}
 Gender: {person.get('gender', 'N/A')}
+Sexual Orientation: {person.get('orientation', 'N/A')}
 Year: {person.get('year', 'N/A')}
 Looking for: {person.get('looking_for', 'N/A')}
 
@@ -193,6 +197,9 @@ What they value in a partner: {person.get('partner_values', 'N/A')}
 Shared interests importance (1-5): {person.get('shared_interests_importance', 'N/A')}
 Their type: {person.get('type_description', 'N/A')}
 Deal-breakers: {person.get('dealbreakers', 'N/A')}
+
+Favorite TV/Movie: {person.get('favorite_media', 'N/A')}
+Fun fact: {person.get('fun_fact', 'N/A')}
 """.strip()
 
     # Add LinkedIn data if available
@@ -231,9 +238,9 @@ Deal-breakers: {person.get('dealbreakers', 'N/A')}
     return profile
 
 
-def evaluate_compatibility_with_claude(person1, person2, client):
+def evaluate_compatibility_with_groq(person1, person2, client):
     """
-    Use Claude API to evaluate compatibility between two people.
+    Use Groq API to evaluate compatibility between two people.
     Returns a compatibility score (0-100) and reasoning.
     """
     profile1 = create_person_profile(person1)
@@ -268,16 +275,18 @@ Provide your analysis in JSON format:
 Be honest - some matches will be great (80-100), some okay (50-79), some poor (0-49)."""
 
     try:
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            temperature=0.7,
+            max_tokens=1024,
+            response_format={"type": "json_object"}
         )
 
         # Parse the JSON response
-        response_text = message.content[0].text
+        response_text = completion.choices[0].message.content
 
         # Extract JSON from response (handle markdown code blocks)
         if "```json" in response_text:
@@ -302,12 +311,12 @@ Be honest - some matches will be great (80-100), some okay (50-79), some poor (0
         }
 
 
-def find_matches_with_claude(df, api_key, linkedin_email=None, linkedin_password=None):
+def find_matches_with_groq(df, api_key, linkedin_email=None, linkedin_password=None):
     """
-    Find optimal matches using Claude API for compatibility evaluation.
+    Find optimal matches using Groq API for compatibility evaluation.
     Optionally includes LinkedIn data if credentials are provided.
     """
-    client = anthropic.Anthropic(api_key=api_key)
+    client = Groq(api_key=api_key)
 
     # Initialize LinkedIn client if credentials provided
     linkedin_client = None
@@ -335,7 +344,7 @@ def find_matches_with_claude(df, api_key, linkedin_email=None, linkedin_password
 
     compatibility = {}
 
-    print(f"Evaluating compatibility for {n} people using Claude API...")
+    print(f"Evaluating compatibility for {n} people using Groq AI...")
     print("This may take a few minutes...\n")
 
     # Evaluate all compatible pairs
@@ -352,8 +361,8 @@ def find_matches_with_claude(df, api_key, linkedin_email=None, linkedin_password
             pair_count += 1
             print(f"Evaluating pair {pair_count}: {person1['name']} + {person2['name']}...", end=" ")
 
-            # Use Claude to evaluate this pair
-            result = evaluate_compatibility_with_claude(person1, person2, client)
+            # Use Groq to evaluate this pair
+            result = evaluate_compatibility_with_groq(person1, person2, client)
             score = result['compatibility_score']
 
             print(f"Score: {score}%")
@@ -417,8 +426,10 @@ def export_matches(matches, output_file='matches_api.csv'):
         results.append({
             'Person 1 Name': person1['name'],
             'Person 1 Email': person1['email'],
+            'Person 1 Phone': person1.get('phone', ''),
             'Person 2 Name': person2['name'],
             'Person 2 Email': person2['email'],
+            'Person 2 Phone': person2.get('phone', ''),
             'Compatibility Score': f"{match['score']}%",
             'Shared Interests': ', '.join(match['shared_interests']),
             'Key Matches': ', '.join(match['key_matches']),
@@ -435,28 +446,30 @@ def export_matches(matches, output_file='matches_api.csv'):
 
 
 def main():
-    """Main function to run the Claude API matcher."""
+    """Main function to run the Groq API matcher."""
     if len(sys.argv) < 2:
         print("Usage: python matcher_api.py <responses.csv>")
-        print("\nMake sure to set your ANTHROPIC_API_KEY environment variable:")
-        print("  export ANTHROPIC_API_KEY='your-api-key-here'")
+        print("\nMake sure to set your GROQ_API_KEY environment variable:")
+        print("  export GROQ_API_KEY='your-api-key-here'")
+        print("\nGet your FREE API key at: https://console.groq.com/keys")
         sys.exit(1)
 
     csv_file = sys.argv[1]
 
     # Get API key from environment
-    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    api_key = os.environ.get('GROQ_API_KEY')
     if not api_key:
-        print("Error: ANTHROPIC_API_KEY environment variable not set")
+        print("Error: GROQ_API_KEY environment variable not set")
         print("\nSet it with:")
-        print("  export ANTHROPIC_API_KEY='your-api-key-here'")
+        print("  export GROQ_API_KEY='your-api-key-here'")
+        print("\nGet your FREE API key at: https://console.groq.com/keys")
         sys.exit(1)
 
     # Get LinkedIn credentials (optional)
     linkedin_email = os.environ.get('LINKEDIN_EMAIL')
     linkedin_password = os.environ.get('LINKEDIN_PASSWORD')
 
-    print("USC Blind Date Matcher - Claude API Version with LinkedIn")
+    print("USC Blind Date Matcher - Groq AI Version (FREE) with LinkedIn")
     print("=" * 50)
 
     if linkedin_email and linkedin_password:
@@ -469,9 +482,9 @@ def main():
     df = load_responses(csv_file)
     print(f"Loaded {len(df)} responses")
 
-    # Find matches using Claude API
-    print("\nFinding optimal matches using Claude AI...")
-    matches = find_matches_with_claude(df, api_key, linkedin_email, linkedin_password)
+    # Find matches using Groq API
+    print("\nFinding optimal matches using Groq AI...")
+    matches = find_matches_with_groq(df, api_key, linkedin_email, linkedin_password)
 
     print(f"\nFound {len(matches)} matches!")
     print(f"{len(df) - (len(matches) * 2)} people unmatched")
