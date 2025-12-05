@@ -148,11 +148,11 @@ def is_compatible_orientation(person1, person2):
 
     # Check if person1 is interested in person2's gender
     person1_interested = False
-    if 'men' in interested1 and 'man' in gender2:
+    if 'men' in interested1 and gender2 == 'man':
         person1_interested = True
-    elif 'women' in interested1 and 'woman' in gender2:
+    elif 'women' in interested1 and gender2 == 'woman':
         person1_interested = True
-    elif 'other' in interested1 and ('non-binary' in gender2 or 'other' in gender2):
+    elif 'other' in interested1 and (gender2 == 'non-binary' or gender2 == 'other'):
         person1_interested = True
 
     if not person1_interested:
@@ -160,11 +160,11 @@ def is_compatible_orientation(person1, person2):
 
     # Check if person2 is interested in person1's gender
     person2_interested = False
-    if 'men' in interested2 and 'man' in gender1:
+    if 'men' in interested2 and gender1 == 'man':
         person2_interested = True
-    elif 'women' in interested2 and 'woman' in gender1:
+    elif 'women' in interested2 and gender1 == 'woman':
         person2_interested = True
-    elif 'other' in interested2 and ('non-binary' in gender1 or 'other' in gender1):
+    elif 'other' in interested2 and (gender1 == 'non-binary' or gender1 == 'other'):
         person2_interested = True
 
     if not person2_interested:
@@ -185,6 +185,7 @@ Looking for: {person.get('looking_for', 'N/A')}
 Personality Traits: {person.get('self_traits', 'N/A')}
 Social Battery: {person.get('social_battery', 'N/A')}
 Friday Nights: {person.get('friday_night', 'N/A')}
+Favorite Social Media: {person.get('social_media', 'N/A')}
 Hobbies: {person.get('hobbies', 'N/A')}
 Dream Date: {person.get('dream_date', 'N/A')}
 
@@ -248,6 +249,10 @@ def evaluate_compatibility_with_groq(person1, person2, client):
 
     prompt = f"""You are an expert matchmaker analyzing compatibility between two USC students for a blind date matching program.
 
+Context:
+- "The Vic" refers to a popular social bar in downtown Los Angeles. If mentioned in profiles, it indicates nightlife/social preferences.
+- When analyzing LinkedIn data, infer traits: sports teams → athletic, internships → driven/ambitious, non-profit work → kind/compassionate
+
 Here are their profiles:
 
 PERSON A:
@@ -257,11 +262,68 @@ PERSON B:
 {profile2}
 
 Please analyze their compatibility across these dimensions:
-1. Personality compatibility (traits, social energy, lifestyle)
-2. Shared interests and hobbies
-3. What each person wants vs. what the other person offers
-4. Lifestyle alignment (drinking, ambition, social habits)
-5. Deal-breakers (if any)
+
+1. **Personality & Trait Compatibility**:
+   - Compare their personality traits (self_traits)
+   - Assess if their traits complement each other or create balance
+   - Social battery alignment - do their energy levels match?
+   - Favorite social media can indicate personality (TikTok/Instagram = visual/social, LinkedIn = professional, etc.)
+   - Consider sexual orientation context for understanding their identity and experiences
+
+2. **Shared Interests and Hobbies** - **IMPORTANT**: Weight this based on each person's "Shared interests importance" rating (1-5):
+   - If someone rates it 4-5, shared interests should be heavily weighted for their compatibility
+   - If someone rates it 1-2, lack of shared interests shouldn't hurt the score much
+   - Consider if there's a mismatch in how important each person thinks shared interests are
+   - Look for overlapping hobbies and activities
+
+3. **Type Description Matching** - **CRITICAL**:
+   - Check if Person A's "Their type" description matches Person B's actual profile (traits, hobbies, physical attributes, personality)
+   - Check if Person B's "Their type" description matches Person A's actual profile
+   - This is bidirectional - both people should somewhat match what the other is looking for
+   - Significant mismatches here should notably impact the score
+
+4. **Partner Values Alignment** - **CRITICAL**:
+   - Check if what Person A values in a partner (partner_values) actually exists in Person B
+   - Check if what Person B values in a partner actually exists in Person A
+   - Examples: If someone values "athletic" does the other person play sports/work out? If someone values "ambitious" does the other show ambition in their profile/LinkedIn?
+   - Use LinkedIn data to verify these values (sports teams = athletic, internships = ambitious, non-profits = kind)
+
+5. **Lifestyle Compatibility**:
+   - Drinking habits alignment (similar levels or compatible differences)
+   - Weed usage alignment
+   - Ambition/career level compatibility
+   - Social habits and energy levels
+
+6. **Friday Night & Dream Date Compatibility**:
+   - Are their typical Friday nights compatible? (partying vs staying in vs somewhere in between)
+   - Are their dream dates compatible or complementary?
+   - Can their ideal activities coexist or do they conflict?
+
+7. **Relationship Intentions Alignment**:
+   - "Slink 👀" (casual) and "Husband/wifeyyy" (serious) are incompatible
+   - "No pressure, let's see where things go" is flexible and compatible with either end
+   - Factor this into compatibility, but don't heavily penalize mismatches
+
+8. **Deal-breakers** - **CRITICAL**:
+   - Check each person's dealbreakers against the other's profile
+   - Common dealbreakers: smoking/weed use, poor communication, lack of ambition, different values
+   - Any dealbreaker match should significantly impact the score
+
+9. **LinkedIn Insights**:
+   - Use LinkedIn data to infer personality traits: sports teams → athletic, internships → driven/ambitious, non-profit work → kind/compassionate
+   - Match these inferred traits with what each person values in a partner
+   - Look for career/ambition alignment
+
+10. **Media Taste Compatibility**:
+    - Exact matches are a strong compatibility boost
+    - Similar genres/themes count as shared interests
+    - Niche or obscure shows/movies both liking suggests similar taste and stronger connection
+
+11. **Fun Fact Analysis**:
+    - Unique shared experiences or backgrounds
+    - Personality quirks and humor style compatibility
+    - Unexpected common interests
+    - Potential conversation starters that could make a great first date
 
 Provide your analysis in JSON format:
 {{
@@ -272,7 +334,15 @@ Provide your analysis in JSON format:
     "potential_concerns": ["<any concerns>"]
 }}
 
-Be honest - some matches will be great (80-100), some okay (50-79), some poor (0-49)."""
+**IMPORTANT - Score Calibration**: Use the FULL 0-100 range. Be critical and honest:
+- 0-30: Incompatible or significant dealbreakers/mismatches
+- 31-50: Poor match, major concerns outweigh positives
+- 51-65: Mediocre match, some compatibility but notable gaps
+- 66-75: Good match, solid compatibility with minor concerns
+- 76-85: Great match, strong compatibility across most dimensions
+- 86-100: Exceptional match, outstanding compatibility (RARE - reserve for truly exceptional pairs)
+
+Most matches should fall in the 40-75 range. Don't inflate scores - be selective about giving 80+."""
 
     try:
         completion = client.chat.completions.create(
@@ -281,7 +351,7 @@ Be honest - some matches will be great (80-100), some okay (50-79), some poor (0
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7,
-            max_tokens=1024,
+            max_tokens=2048,
             response_format={"type": "json_object"}
         )
 

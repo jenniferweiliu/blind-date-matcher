@@ -1,14 +1,14 @@
-# USC Blind Date Matcher - Claude API Version
+# USC Blind Date Matcher - Groq AI Version (FREE!)
 
-This version uses **Claude AI** to intelligently evaluate compatibility between students, providing nuanced reasoning and analysis.
+This version uses **Groq AI** to intelligently evaluate compatibility between students, providing nuanced reasoning and analysis - completely FREE!
 
 ## Key Differences from Algorithmic Version
 
-| Feature | Algorithmic (`matcher.py`) | Claude API (`matcher_api.py`) |
+| Feature | Algorithmic (`matcher.py`) | Groq API (`matcher_api.py`) |
 |---------|---------------------------|-------------------------------|
 | **Matching Method** | Mathematical scoring algorithm | AI reasoning and analysis |
-| **Speed** | Fast (~1 second) | Slower (~5-10 min for 50 people) |
-| **Cost** | Free | ~$0.50-2.00 per run (API costs) |
+| **Speed** | Fast (~1 second) | Fast (~2-5 min for 50 people) |
+| **Cost** | Free | **FREE** (Groq's free tier) |
 | **Insights** | Compatibility score only | Score + reasoning + concerns |
 | **Customization** | Change code weights | Adjust AI prompt |
 | **Understanding** | Pattern matching | Deep contextual analysis |
@@ -18,8 +18,8 @@ This version uses **Claude AI** to intelligently evaluate compatibility between 
 1. **Loads** form responses
 2. **(Optional) Fetches LinkedIn data** for each person - experience, education, skills
 3. **Filters** by orientation/gender compatibility
-4. **Sends each pair** to Claude API with full profile details + LinkedIn data
-5. **Claude analyzes** personalities, values, lifestyles, descriptions, AND professional backgrounds
+4. **Sends each pair** to Groq API with full profile details + LinkedIn data
+5. **Groq AI analyzes** personalities, values, lifestyles, descriptions, AND professional backgrounds
 6. **Returns** compatibility score (0-100) + reasoning
 7. **Creates optimal matches** using maximum weight matching
 8. **Exports** to CSV with AI insights
@@ -43,7 +43,7 @@ The matcher can now extract and use LinkedIn profile data for even more intellig
 ### Example:
 > Person A: Works at Google, studied CS, skills include Python, Machine Learning
 > Person B: Works at Meta, studied CS, skills include JavaScript, AI
-> **Claude**: "Both are in tech with AI interests - great conversation starters!"
+> **Groq AI**: "Both are in tech with AI interests - great conversation starters!"
 
 ## Setup
 
@@ -61,9 +61,9 @@ If you want to use LinkedIn integration, add this question to your Google Form:
 pip3 install -r requirements.txt
 ```
 
-### 2. Get Anthropic API Key
+### 2. Get Free Groq API Key
 
-1. Sign up at https://console.anthropic.com
+1. Sign up at **https://console.groq.com** (NO CREDIT CARD REQUIRED!)
 2. Go to API Keys section
 3. Create a new API key
 4. Copy the key
@@ -71,8 +71,8 @@ pip3 install -r requirements.txt
 ### 3. Set Environment Variables
 
 ```bash
-# Required: Claude API
-export ANTHROPIC_API_KEY='your-api-key-here'
+# Required: Groq API (FREE!)
+export GROQ_API_KEY='your-groq-api-key-here'
 
 # Optional: LinkedIn (for enhanced matching)
 export LINKEDIN_EMAIL='your-linkedin-email@example.com'
@@ -107,13 +107,13 @@ python3 matcher_api.py responses.csv
 ### Sample Output
 
 ```
-USC Blind Date Matcher - Claude API Version
+USC Blind Date Matcher - Groq AI Version (FREE) with LinkedIn
 ==================================================
 
 Loading responses from responses.csv...
 Loaded 50 responses
 
-Evaluating compatibility for 50 people using Claude API...
+Evaluating compatibility for 50 people using Groq AI...
 This may take a few minutes...
 
 Evaluating pair 1: Alex Johnson + Sarah Mitchell... Score: 87%
@@ -151,53 +151,57 @@ The CSV includes:
 
 ## Cost Estimation
 
-- **Model**: Claude Sonnet 4 (`claude-sonnet-4-20250514`)
-- **Cost**: ~$3 per million input tokens, ~$15 per million output tokens
-- **Per pair evaluation**: ~500 input + 200 output tokens = ~$0.004 per pair
-- **For 50 people**: ~1,225 pairs × $0.004 = **~$4.90 total**
+🎉 **COMPLETELY FREE!**
 
-For smaller groups (<20 people), cost is usually **under $1**.
+- **Model**: Llama 3.1 70B (`llama-3.1-70b-versatile`)
+- **Cost**: **$0.00** - Groq offers generous free tier
+- **Rate Limits**: Very generous for personal projects
+- **No credit card required** to sign up!
 
-## Advantages of Claude API Version
+This means you can run the matcher as many times as you want without worrying about costs!
+
+## Advantages of Groq AI Version
 
 ### 1. **Nuanced Understanding**
-Claude understands context that algorithms miss:
+Groq AI understands context that algorithms miss:
 - "Loves adventure" matches with "Spontaneous and outdoorsy"
 - "Homebody" recognized as incompatible with "I'm out every night"
 - Subtle personality cues in free-text descriptions
 
 ### 2. **Reasoning Transparency**
-Every match includes Claude's explanation:
+Every match includes AI's explanation:
 > "Both value intellectual conversations and share a love for reading. Their calm,
 > introverted personalities complement each other well."
 
 ### 3. **Adaptive Matching**
-Claude can:
+Groq AI can:
 - Identify deal-breakers beyond the checklist
 - Recognize complementary vs. similar traits
 - Balance "opposites attract" vs. "birds of a feather"
 
 ### 4. **No Manual Tuning**
-The algorithmic version requires tweaking weights. Claude adapts naturally.
+The algorithmic version requires tweaking weights. Groq AI adapts naturally.
+
+### 5. **FREE & FAST**
+Groq is known for incredibly fast inference speeds - you get AI-powered matching without any cost!
 
 ## When to Use Which Version?
 
 **Use Algorithmic (`matcher.py`) when:**
-- You want instant results
-- Running frequently / testing
-- Budget is a concern
-- You have 100+ people (API would be expensive)
+- You want instant results (< 1 second)
+- You prefer a completely offline solution
+- You're working in an environment without internet access
 
-**Use Claude API (`matcher_api.py`) when:**
-- Quality > speed
-- You want explanations for matches
-- You have rich, detailed responses
-- Budget allows ($1-5 per run)
-- Final, production matching for an event
+**Use Groq API (`matcher_api.py`) when:**
+- You want AI-powered matching with explanations
+- You want to understand WHY people match
+- You have rich, detailed responses to analyze
+- You want the best quality matches
+- **Recommended for most users** - it's FREE and provides much better insights!
 
 ## Customizing the Matching Logic
 
-Edit the prompt in `matcher_api.py` to change how Claude evaluates:
+Edit the prompt in `matcher_api.py` to change how Groq AI evaluates:
 
 ```python
 prompt = f"""You are an expert matchmaker...
@@ -212,17 +216,20 @@ Please analyze their compatibility focusing on:
 
 ## Troubleshooting
 
-**"ANTHROPIC_API_KEY not set"**
-- Run: `export ANTHROPIC_API_KEY='your-key'`
+**"GROQ_API_KEY not set"**
+- Run: `export GROQ_API_KEY='your-key'`
 - Or add to `~/.bashrc` or `~/.zshrc` for persistence
+- Get your FREE key at: https://console.groq.com/keys
 
 **API rate limits**
-- Claude has rate limits; for large batches, add delays
-- See: https://docs.anthropic.com/en/api/rate-limits
+- Groq has generous rate limits for the free tier
+- If you hit limits, wait a minute and try again
+- See: https://console.groq.com/docs/rate-limits
 
-**High costs**
-- Test with small sample first (`head -n 10 responses.csv > test.csv`)
-- Use cheaper model like `claude-haiku-3-20240307` (edit script)
+**Want to try different models?**
+- Edit line 272 in `matcher_api.py` to change the model
+- Options: `llama-3.1-70b-versatile`, `mixtral-8x7b-32768`, `llama-3.1-8b-instant`
+- All models are FREE on Groq!
 
 ## Comparing Results
 
@@ -233,9 +240,9 @@ Run both versions and compare:
 python3 matcher.py responses.csv
 # Output: matches.csv
 
-# Claude API version
+# Groq AI version
 python3 matcher_api.py responses.csv
 # Output: matches_api.csv
 ```
 
-Often the top matches overlap, but Claude finds subtle compatibilities the algorithm misses!
+Often the top matches overlap, but Groq AI finds subtle compatibilities the algorithm misses!
